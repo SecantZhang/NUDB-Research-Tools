@@ -10,14 +10,10 @@ log_dict = {
             "runtime": <time>, 
             "unit": <unit>, 
             "operators": {
-                operators_name_1: {
-                    "runtime": <time>, 
-                    "unit": <unit>
-                }, 
-                oparators_name_2: {
-                    "runtime": <time>, 
-                    "unit": <unit>
-                }
+                operators_name_1: [{ "runtime": <time>, "unit": <unit> }, 
+                                   { "runtime": <time>, "unit": <unit> }],
+                oparators_name_2: [{ "runtime": <time>, "unit": <unit> }, 
+                                   { "runtime": <time>, "unit": <unit> }]
             }
         }, 
         subtest_name_2: {
@@ -60,12 +56,14 @@ def log_parser(log_file: list):
         if curr_log[:18] == "Current operator: ":
             operator_name, runtime, unit = curr_log[18:].split()
             operator_name = operator_name.split(":")[0]
+            unit = unit.split(".")[0]
             if curr_subtest_name not in log_dict[curr_maintest_name]:
-                log_dict[curr_maintest_name][curr_subtest_name] = {"operators": {operator_name: {"runtime": runtime,
-                                                                                                 "unit": unit}}}
+                log_dict[curr_maintest_name][curr_subtest_name] = {"operators": {operator_name: [{"runtime": runtime, "unit": unit}]}}
             else:
-                log_dict[curr_maintest_name][curr_subtest_name]["operators"][operator_name] = {"runtime": runtime,
-                                                                                               "unit": unit}
+                if operator_name in log_dict[curr_maintest_name][curr_subtest_name]["operators"]: 
+                    log_dict[curr_maintest_name][curr_subtest_name]["operators"][operator_name].append({"runtime": runtime, "unit": unit})
+                else: 
+                    log_dict[curr_maintest_name][curr_subtest_name]["operators"][operator_name] = [{"runtime": runtime, "unit": unit}]
 
     return log_dict
 
@@ -78,9 +76,9 @@ def log_writer(log_dict: dict, output_file: str):
         for subtest_name, subtest_dict in log_dict[maintest_name].items():
             output_list.append([maintest_name, subtest_name, "", subtest_dict["runtime"], subtest_dict["unit"]])
             if subtest_dict["operators"]:  # check if the subtest_dict["operators"] is empty
-                for operator_name, operator_dict in subtest_dict["operators"].items():
-                    output_list.append(
-                        [maintest_name, subtest_name, operator_name, operator_dict["runtime"], operator_dict["unit"]])
+                for operator_name, operator_list in subtest_dict["operators"].items():
+                    for operator_dict in operator_list: 
+                        output_list.append([maintest_name, subtest_name, operator_name, operator_dict["runtime"], operator_dict["unit"]])
 
     parsed_df = pd.DataFrame(output_list, columns=column_names)
     parsed_df.to_csv(output_file, index=False)
